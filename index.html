@@ -701,13 +701,13 @@ function paint(){
   palSel.value=curPal;
   $$('.pbtn').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.k===curPal?'true':'false')});
   $$('.sbtn').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.m===modePref?'true':'false')});
-  var mb=$('#mode');if(mb)mb.textContent=curMode==='dark'?'Dark':'Light';
+  var mb=$('#mode');if(mb){mb.textContent=modePref==='auto'?'Auto':(modePref==='dark'?'Dark':'Light');mb.setAttribute('aria-label','Colour mode: '+mb.textContent+'. Tap to change.')}
   $$('.fwrap iframe').forEach(sendTheme);
 }
 function applyPal(k,save){if(!PD.frames[k])k='mix';curPal=k;paint();if(save){try{localStorage.setItem('nek3-pal',k)}catch(e){}}}
 function setMode(m,save){modePref=m;paint();if(save){try{localStorage.setItem('nek3-mode',m)}catch(e){}}}
 palSel.addEventListener('change',function(){applyPal(palSel.value,true)});
-$('#mode').addEventListener('click',function(){setMode(curMode==='dark'?'light':'dark',true)});
+$('#mode').addEventListener('click',function(){setMode(modePref==='auto'?'light':(modePref==='light'?'dark':'auto'),true)});
 if(mq&&mq.addEventListener)mq.addEventListener('change',function(){if(modePref==='auto')paint()});
 var oldLoad=loadFrame;
 loadFrame=function(id,force){var f=oldLoad(id,force);if(!f.dataset.thm){f.dataset.thm='1';f.addEventListener('load',function(){sendTheme(f)});sendTheme(f)}return f};
