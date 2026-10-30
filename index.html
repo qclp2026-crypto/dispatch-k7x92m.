@@ -344,7 +344,7 @@ html[data-pal="mix"][data-mode="dark"] .mod[data-m="wnews"]{--dot:#8FD3CD}
   <nav class="side" id="side" aria-label="Sections"></nav>
   <div class="scrim" id="scrim"></div>
   <main class="stage" id="stage"><section class="pane" id="pane-home" hidden><div class="doc">
-<h2 id="h-top">NEK Capital Dispatch, edition 20</h2>
+<h2 id="h-top">NEK Capital Dispatch, edition 21</h2>
 <p class="lead">One workspace for NEK Global Holdings: market and room intelligence, the command centre, the asset auction and gemstone scanners, plus new sections on world news, tax and residency, ownership structures, lawful access and growth. Dated 28 October 2026, prepared for Boss NEK.</p>
 <h3 id="h-use">How to use this file</h3>
 <ul><li>Use the left menu. Each module opens with its sub-sections listed under it; tap a sub-section to jump straight to it.</li><li>Back and Forward (top bar) step through the places you have visited. Refresh reloads the module you are on and pulls live rates and headlines.</li><li>Live rates and headlines load only when this file is opened from your phone or computer as a downloaded file. The preview inside Claude blocks outside requests, so it shows the dated snapshot and says so.</li><li>Checkboxes and logs save in your own browser only. They do not sync between phone and computer.</li></ul>
@@ -1803,19 +1803,31 @@ var box=document.getElementById('wn-box');if(!box)return;
 var D=JSON.parse(document.getElementById('wn-data').textContent);
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
 var cache={};
-function gnews(q,pk){var base='https://news.google.com/rss/search?q='+encodeURIComponent(q+' when:7d')+(pk?'&hl=en-PK&gl=PK&ceid=PK:en':'&hl=en-US&gl=US&ceid=US:en');return base}
+function gurl(q,pk){return 'https://news.google.com/rss/search?q='+encodeURIComponent(q+' when:7d')+(pk?'&hl=en-PK&gl=PK&ceid=PK:en':'&hl=en-US&gl=US&ceid=US:en')}
 function safe(u){return /^https?:\/\//i.test(u)?u:'#'}
+function tmo(ms){var c=('AbortController' in window)?new AbortController():null;var t=setTimeout(function(){if(c)c.abort()},ms);return {sig:c?c.signal:undefined,done:function(){clearTimeout(t)}}}
+function getj(url,ms){var t=tmo(ms||12000);return fetch(url,t.sig?{signal:t.sig}:{}).then(function(r){t.done();if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).catch(function(e){t.done();throw e})}
+function parseXml(txt){var d=new DOMParser().parseFromString(txt,'text/xml');var its=d.querySelectorAll('item');if(!its.length)throw new Error('no items');var out=[];its.forEach(function(it){var g=function(n){var x=it.querySelector(n);return x?x.textContent:''};out.push({title:g('title'),link:g('link'),date:g('pubDate')})});return out}
+function gd(s){var m=/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)/.exec(s||'');return m?m[1]+'-'+m[2]+'-'+m[3]+' '+m[4]+':'+m[5]:''}
+var SRC=[
+ ['GDELT',function(m){return getj('https://api.gdeltproject.org/api/v2/doc/doc?query='+encodeURIComponent(m.q)+'&mode=ArtList&maxrecords=8&format=json&sort=DateDesc&timespan=7d').then(function(t){var j=JSON.parse(t);if(!j.articles||!j.articles.length)throw new Error('empty');return j.articles.map(function(a){return {title:a.title,link:a.url,date:gd(a.seendate)+' · '+(a.domain||'')}})})}],
+ ['rss2json',function(m){return getj('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(gurl(m.q,/pakistan/i.test(m.q)))).then(function(t){var j=JSON.parse(t);if(j.status!=='ok'||!j.items||!j.items.length)throw new Error(j.message||'empty');return j.items.map(function(i){return {title:i.title,link:i.link,date:(i.pubDate||'')}})})}],
+ ['allorigins',function(m){return getj('https://api.allorigins.win/raw?url='+encodeURIComponent(gurl(m.q,/pakistan/i.test(m.q)))).then(parseXml)}],
+ ['corsproxy',function(m){return getj('https://corsproxy.io/?url='+encodeURIComponent(gurl(m.q,/pakistan/i.test(m.q)))).then(parseXml)}]
+];
 function load(m,list,btn,stat){
- var key=m.q;stat.textContent='Loading…';btn.disabled=true;
- var ctl=('AbortController' in window)?new AbortController():null;var to=setTimeout(function(){if(ctl)ctl.abort()},15000);
- var url='https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(gnews(m.q,/pakistan/i.test(m.q)));
- fetch(url,ctl?{signal:ctl.signal}:{}).then(function(r){if(!r.ok)throw new Error('http');return r.json()}).then(function(j){
-  clearTimeout(to);btn.disabled=false;
-  if(!j||j.status!=='ok'||!j.items||!j.items.length){stat.textContent='No headlines came back. Use the search links.';return}
-  list.textContent='';
-  j.items.slice(0,6).forEach(function(it){var li=document.createElement('li');var a=document.createElement('a');a.href=safe(it.link);a.target='_blank';a.rel='noopener';a.textContent=it.title||'Headline';li.appendChild(a);var sm=el('small',null,(it.pubDate||'').slice(0,16));li.appendChild(sm);list.appendChild(li)});
-  stat.textContent='Loaded '+Math.min(6,j.items.length)+' headlines at '+new Date().toLocaleTimeString()+'. Check dates at the source.';
- }).catch(function(){clearTimeout(to);btn.disabled=false;stat.textContent='Could not load (offline, blocked or busy). Use the search links.'});
+ stat.textContent='Loading…';btn.disabled=true;var fails=[];
+ function next(i){
+  if(i>=SRC.length){btn.disabled=false;
+   var why=(navigator.onLine===false)?'Your device looks offline.':(/claude\.(ai|com)|anthropic/i.test(location.hostname)?'This preview page blocks outside connections. Open the installed app or the GitHub Pages address instead.':'Every news source failed ('+fails.join('; ')+'). The services may be busy or blocked on this network. Try again in a minute, or use the search links.');
+   stat.textContent='Could not load headlines. '+why;return}
+  SRC[i][1](m).then(function(items){
+   btn.disabled=false;list.textContent='';
+   items.slice(0,6).forEach(function(it){var li=document.createElement('li');var a=document.createElement('a');a.href=safe(it.link);a.target='_blank';a.rel='noopener';a.textContent=it.title||'Headline';li.appendChild(a);li.appendChild(el('small',null,(it.date||'').slice(0,40)));list.appendChild(li)});
+   stat.textContent='Loaded '+Math.min(6,items.length)+' headlines via '+SRC[i][0]+' at '+new Date().toLocaleTimeString()+'. Check dates at the source.';
+  }).catch(function(e){fails.push(SRC[i][0]+': '+(e&&e.message?e.message:'failed'));next(i+1)});
+ }
+ next(0);
 }
 function link(txt,href){var a=document.createElement('a');a.className='btn';a.href=href;a.target='_blank';a.rel='noopener';a.textContent=txt;return a}
 function card(m){
