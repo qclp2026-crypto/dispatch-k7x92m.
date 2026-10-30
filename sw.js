@@ -1,4 +1,4 @@
-var C='dispatch-v1',F=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png'];
+var C='dispatch-v2',F=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','apple-touch-icon.png','favicon.ico'];
 self.addEventListener('install',function(e){self.skipWaiting();e.waitUntil(caches.open(C).then(function(c){return c.addAll(F)}))});
 self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim())});
 self.addEventListener('fetch',function(e){
