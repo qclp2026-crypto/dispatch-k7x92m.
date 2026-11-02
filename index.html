@@ -23,6 +23,8 @@ a{color:var(--steel)}
 #menu{display:none}
 .ttl{display:flex;flex-direction:column;line-height:1.15;margin-left:6px;min-width:0}
 .ttl b{font-family:var(--f-serif);font-size:15px}
+.vtag{font-style:normal;font-family:var(--f-sans,system-ui,sans-serif);font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--bargold);border:1px solid currentColor;border-radius:9px;padding:0 6px;margin-left:6px;vertical-align:2px;white-space:nowrap}
+.vtag.new{color:#E7B94D;background:rgba(231,185,77,.14)}
 .ttl span{font-size:12px;color:var(--bargold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat{margin-left:auto;font-size:12px;color:var(--barmut);min-width:0;flex:1 1 220px;text-align:right}
 .stat.ok{color:var(--bargold)}.stat.bad{color:var(--bargold);font-weight:600}
@@ -386,7 +388,7 @@ html[data-pal="mix"][data-mode="dark"] .mod[data-m="chp"]{--dot:#D2BE91}
   <button class="ib pri" id="refresh" type="button">Refresh</button>
   <button class="ib" id="mode" type="button" aria-label="Toggle light or dark">Light</button>
   <select id="pal" aria-label="Colour theme"></select>
-  <div class="ttl"><b>NEK Capital Dispatch</b><span id="where">Start here</span></div>
+  <div class="ttl"><b>NEK Capital Dispatch <em class="vtag" id="vtag" title="Version running on this device">v40</em></b><span id="where">Start here</span></div>
   <div class="stat" id="stat" role="status">Briefing 30 Oct 2026. Press Refresh for live rates.</div>
 </header>
 <div class="ticker" id="ticker"><span>USD/PKR <b id="t-usd">276.87</b></span><span>EUR/PKR <b id="t-eur">310.57</b></span><span>Gold <b id="t-gold">Rs 419,000/tola</b></span><span>Bitcoin <b id="t-btc">n/a</b></span><span>SBP <b>12.00%</b></span><span id="t-time" class="muted"></span></div>
@@ -484,7 +486,7 @@ function f(){var t=q.value.trim().toLowerCase(),c=0;
 n.textContent=t?(c+' matches'):''}
 q.addEventListener('input',f)})();</script>
 <section class="pane" id="pane-home" hidden><div class="doc">
-<h2 id="h-top">NEK Capital Dispatch, edition 39</h2>
+<h2 id="h-top">NEK Capital Dispatch, edition 40</h2>
 <p class="lead">One workspace for NEK Global Holdings: market and room intelligence, the command centre, the asset auction and gemstone scanners, plus new sections on world news, tax and residency, ownership structures, lawful access and growth. Updated 30 October 2026, prepared for Boss NEK.</p>
 <h3 id="h-use">How to use this file</h3>
 <ul><li>Use the left menu. Each module opens with its sub-sections listed under it; tap a sub-section to jump straight to it.</li><li>Back and Forward (top bar) step through the places you have visited. Refresh reloads the module you are on and pulls live rates and headlines.</li><li>Live rates and headlines load only when this file is opened from your phone or computer as a downloaded file. The preview inside Claude blocks outside requests, so it shows the dated snapshot and says so.</li><li>Checkboxes and logs save in your own browser only. They do not sync between phone and computer.</li></ul>
@@ -1104,22 +1106,25 @@ function loadNews(){
 }
 $('#newsLoad').addEventListener('click',loadNews);
 /* version check, update and refresh */
-var BUILD='39',updReady=false,busyR=false,lastCheck=0,rbtn=$('#refresh');
+var BUILD='40',newV='',updReady=false,busyR=false,lastCheck=0,rbtn=$('#refresh');
 try{if(/[?&]u=\d+/.test(location.search))history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
 function checkUpdate(force){
   if(!/^https?:$/.test(location.protocol))return Promise.resolve(null);
   var now=Date.now();if(!force&&now-lastCheck<60000)return Promise.resolve(null);lastCheck=now;
   return fetch(new URL('version.json',location.href).href+'?t='+now,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('v');return r.json()}).then(function(j){
-    if(j&&j.v&&String(j.v)!==BUILD){markUpdate();return true}
+    if(j&&j.v&&String(j.v)!==BUILD){markUpdate(String(j.v));return true}
     return false;
   }).catch(function(){return null});
 }
-function markUpdate(){
-  if(updReady)return;updReady=true;rbtn.classList.add('pulse');rbtn.textContent='Update';rbtn.title='A newer version is ready. Tap to install it.';
-  setStat('A new version is ready. Tap Update to install it.','ok');
+function showVer(){var t=$('#vtag');if(!t)return;if(updReady&&newV){t.textContent='v'+BUILD+' \u2192 v'+newV;t.classList.add('new');t.title='Version '+newV+' is ready. Tap Update.'}else{t.textContent='v'+BUILD;t.classList.remove('new')}}
+function markUpdate(v){
+  if(v)newV=v;
+  if(updReady){rbtn.textContent='Update v'+newV;showVer();return}
+  updReady=true;rbtn.classList.add('pulse');rbtn.textContent='Update v'+newV;rbtn.title='Version '+newV+' is ready (you have '+BUILD+'). Tap to install it.';
+  setStat('Version '+newV+' is ready. You are on version '+BUILD+'. Tap Update v'+newV+' to install it.','ok');showVer();
 }
 function applyUpdate(){
-  rbtn.disabled=true;rbtn.textContent='Updating…';setStat('Installing the new version…','ok');
+  rbtn.disabled=true;rbtn.textContent='Updating to v'+newV+'…';setStat('Installing the new version…','ok');
   var jobs=[];
   try{if(window.caches)jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}))}catch(e){}
   try{if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}catch(e){}
@@ -1151,17 +1156,17 @@ function doRefresh(){
   if(updReady){applyUpdate();return}
   busyR=true;rbtn.disabled=true;rbtn.textContent='Checking…';setStat('Checking for a newer version…');
   checkUpdate(true).then(function(u){
-    if(u){busyR=false;applyUpdate();return}
+    if(u){return}
     rbtn.textContent='Refreshing…';
     var jobs=[liveRates().then(syncOverview)];
     if(cur==='news'||($('#newsList')&&$('#newsList').children.length))jobs.push(loadNews());
     refreshFrames();
     return Promise.all(jobs).then(function(){
-      if(u===false)setStat('You have the latest version. Data refreshed '+stamp()+'.','ok');
+      if(u===false)setStat('You are on the latest version (v'+BUILD+'). Data refreshed '+stamp()+'.','ok');
     });
   }).catch(function(){}).then(function(){busyR=false;if(!updReady){rbtn.disabled=false;rbtn.textContent='Refresh'}else{rbtn.disabled=false}});
 }
-rbtn.addEventListener('click',doRefresh);
+rbtn.addEventListener('click',doRefresh);showVer();
 setInterval(function(){checkUpdate(true)},20*60*1000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)checkUpdate(false)});
 window.addEventListener('focus',function(){checkUpdate(false)});
